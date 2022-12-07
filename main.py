@@ -5,6 +5,11 @@ import numpy as np
 import random
 import time
 
+import pyttsx3
+engine = pyttsx3.init()
+rate = engine.getProperty('rate')
+engine.setProperty('rate', 125)
+
 mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
 mp_holistic = mp.solutions.holistic
@@ -84,10 +89,17 @@ neck_damage_timer = 0
 right_wrist_damage_timer = 0
 left_wrist_damage_timer = 0
 
-left_wrist_health = 600
-right_wrist_health = 600
-back_health = 600
-neck_health = 600
+left_wrist_health = 6000
+right_wrist_health = 6000
+back_health = 6000
+neck_health = 6000
+
+left_wrist_health_percentage = 100
+right_wrist_health_percentage = 100
+back_health_percentage = 100
+neck_health_percentage = 100
+green_color = 255
+red_color = 0
 
 with mp_pose.Pose(min_detection_confidence=0.8, min_tracking_confidence=0.8) as pose:
     while cap.isOpened():
@@ -146,37 +158,94 @@ with mp_pose.Pose(min_detection_confidence=0.8, min_tracking_confidence=0.8) as 
 
             hips = calculate_midpoint(right_hip, left_hip)
             shoulders = calculate_midpoint(right_shoulder, left_shoulder)
+            midpoint_back = calculate_midpoint(hips, shoulders)
+            midpoint_neck = calculate_midpoint(shoulders, face_nose)
             left_hand = calculate_midpoint(left_index, left_pinky)
             right_hand = calculate_midpoint(right_index, right_pinky)
 
-            left_wrist_angle = calculate_angle(right_hand, right_wrist, right_elbow)
-            right_wrist_angle = calculate_angle(left_hand, left_wrist, left_elbow)
+            left_wrist_angle = calculate_angle(right_index, right_wrist, right_elbow)
+            right_wrist_angle = calculate_angle(left_index, left_wrist, left_elbow)
             neck_angle = calculate_angle(hips, shoulders, face_nose)
+
             if(back_angle < 70):
-                print("damage has been taken")
                 back_damage_timer += 1/timeCount
                 back_health -= back_damage_timer
-                back_health_percentage = back_health / 600
+                back_health_percentage = back_health / 6000
+                red_color = int(255 * (1 - left_wrist_health_percentage))
+                if (red_color >= 250):
+                    green_color = int(255 * left_wrist_health_percentage)
+                back_health_percentage = round(round(back_health_percentage, 4) * 100, 3)
+                if (back_health_percentage <= 0):
+                    engine.say("WARNING, SIT STRAIGHT")
+                    engine.runAndWait()
+                    back_health = 6000
+                    red_color = 0
+                    green_color = 255
 
             if(neck_angle < 130):
-                print("damage has been taken")
                 neck_damage_timer += 1/timeCount
                 neck_health -= neck_damage_timer
-                neck_health_percentage = neck_health / 600
+                neck_health_percentage = neck_health / 6000
+                red_color = int(255 * (1 - left_wrist_health_percentage))
+                if (red_color >= 250):
+                    green_color = int(255 * left_wrist_health_percentage)
+                neck_health_percentage = round(round(neck_health_percentage, 4) * 100, 3)
+                if (neck_health_percentage <= 0):
+                    engine.say("WARNING, KEEP YOUR HEAD UP")
+                    engine.runAndWait()
+                    neck_health = 6000
+                    red_color = 0
+                    green_color = 255
 
             if(right_wrist_angle < 130):
-                print("damage has been taken")
                 right_wrist_damage_timer += 1/timeCount
                 right_wrist_health = right_wrist_health-right_wrist_damage_timer
-                right_wrist_health_percentage = right_wrist_health / 600
-                if (right_wrist_health_percentage == 0):
-
+                right_wrist_health_percentage = right_wrist_health / 6000
+                red_color = int(255 * (1 - left_wrist_health_percentage))
+                if (red_color >= 250):
+                    green_color = int(255 * left_wrist_health_percentage)
+                right_wrist_health_percentage = round(round(right_wrist_health_percentage, 4) * 100, 3)
+                if (right_wrist_health_percentage <= 0):
+                    engine.say("WARNING, STRAIGHTEN OUT RIGHT WRIST")
+                    engine.runAndWait()
+                    right_wrist_health = 6000
+                    red_color = 0
+                    green_color = 255
 
             if(left_wrist_angle < 130):
-                print("damage has been taken")
                 left_wrist_damage_timer += 1/timeCount
                 left_wrist_health = left_wrist_health-left_wrist_damage_timer
-                left_wrist_health_percentage = left_wrist_health / 600
+                left_wrist_health_percentage = left_wrist_health / 6000
+                red_color = int(255*(1-left_wrist_health_percentage))
+                if(red_color >= 250):
+                    green_color = int(255*left_wrist_health_percentage)
+                left_wrist_health_percentage = round(round(left_wrist_health_percentage, 4) * 100, 3)
+                if (left_wrist_health_percentage <= 0):
+                    engine.say("WARNING, STRAIGHTEN OUT LEFT WRIST")
+                    engine.runAndWait()
+                    left_wrist_health = 6000
+                    red_color = 0
+                    green_color = 255
+
+            overall_health_percentage = (left_wrist_health_percentage + right_wrist_health_percentage + neck_health_percentage + back_health_percentage)/4
+            overall_health_percentage = overall_health_percentage/100
+            overall_health = 1280*overall_health_percentage
+            overall_health = int(overall_health)
+
+            cv2.rectangle(image, (0, 0), (overall_health, 50), (0, green_color, red_color), -1)
+            cv2.putText(image, 'OVERALL JOINT HEALTH', (15, 12),
+                        cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 0, 0), 1, cv2.LINE_AA)
+            cv2.putText(image, str(left_wrist_health_percentage),
+                        tuple(np.multiply(right_wrist, [1280, 720]).astype(int)), cv2.FONT_HERSHEY_DUPLEX, 1, (255, green_color, 0), 2, cv2.LINE_AA)
+            cv2.putText(image, str(right_wrist_health_percentage),
+                        tuple(np.multiply(left_wrist, [1280, 720]).astype(int)), cv2.FONT_HERSHEY_DUPLEX, 1,
+                        (255, green_color, 0), 2, cv2.LINE_AA)
+            cv2.putText(image, str(back_health_percentage),
+                        tuple(np.multiply(midpoint_back, [1280, 720]).astype(int)), cv2.FONT_HERSHEY_DUPLEX, 1,
+                        (255, green_color, 0), 2, cv2.LINE_AA)
+            cv2.putText(image, str(neck_health_percentage),
+                        tuple(np.multiply(midpoint_neck, [1280, 720]).astype(int)), cv2.FONT_HERSHEY_DUPLEX, 1,
+                        (255, green_color, 0), 2, cv2.LINE_AA)
 #chicken
 
         except:
